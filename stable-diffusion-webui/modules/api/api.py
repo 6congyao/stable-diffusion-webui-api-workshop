@@ -153,8 +153,8 @@ class Api:
         self.add_api_route("/sdapi/v1/train/hypernetwork", self.train_hypernetwork, methods=["POST"], response_model=TrainResponse)
         self.add_api_route("/sdapi/v1/memory", self.get_memory, methods=["GET"], response_model=MemoryResponse)
         self.add_api_route("/sdapi/v1/scripts", self.get_scripts_list, methods=["GET"], response_model=ScriptsList)
-        self.app.add_api_route("/invocations", self.invocations, methods=["POST"], response_model=Union[TextToImageResponse, ImageToImageResponse, ExtrasSingleImageResponse, ExtrasBatchImagesResponse, List[SDModelItem]])
-        self.app.add_api_route("/ping", self.ping, methods=["GET"], response_model=PingResponse)
+        self.add_api_route("/invocations", self.invocations, methods=["POST"], response_model=Union[TextToImageResponse, ImageToImageResponse, ExtrasSingleImageResponse, ExtrasBatchImagesResponse])
+        self.add_api_route("/ping", self.ping, methods=["GET"], response_model=PingResponse)
 
     def add_api_route(self, path: str, endpoint, **kwargs):
         if shared.cmd_opts.api_auth:
@@ -632,9 +632,7 @@ class Api:
                 return response
             elif req.task == 'extras-batch-images':
                 response = self.extras_batch_images_api(req.extras_batch_payload)
-                return response                
-            elif req.task == 'sd-models':
-                return self.get_sd_models()
+                return response
             else:
                 raise NotImplementedError
         except Exception as e:
