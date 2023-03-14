@@ -619,8 +619,6 @@ class Api:
         print(req)
 
         try:
-            username = req.username
-
             if req.task == 'text-to-image':
                 response = self.text2imgapi(req.txt2img_payload)
                 return response
