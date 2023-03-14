@@ -25,6 +25,8 @@ from modules import devices
 from typing import List
 import piexif
 import piexif.helper
+from typing import Union
+import traceback
 
 def upscaler_to_index(name: str):
     try:
