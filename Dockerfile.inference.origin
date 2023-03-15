@@ -9,7 +9,8 @@ RUN mkdir -p /opt/ml/code
 COPY serve /opt/ml/code
 
 COPY stable-diffusion-webui /opt/ml/code/
-RUN git clone https://github.com/xieyongliang/sd-webui-controlnet.git /opt/ml/code/extensions/sd-webui-controlnet
+RUN git clone https://github.com/Mikubill/sd-webui-controlnet.git /opt/ml/code/extensions/sd-webui-controlnet
+RUN git clone https://github.com/kohya-ss/sd-webui-additional-networks.git /opt/ml/code/extensions/sd-webui-additional-networks
 
 RUN python3 -m venv /opt/ml/code/venv
 RUN apt install build-essential
