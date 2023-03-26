@@ -13,13 +13,14 @@ RUN mkdir -p /opt/ml/code
 # install the SageMaker Training Toolkit 
 RUN pip3 install sagemaker-training
 
-COPY train.py /opt/ml/code/
+COPY train.py /opt/ml/code
+COPY train.sh /opt/ml/code
 COPY train_dreambooth.py /opt/ml/code
+COPY stable-diffusion-webui /opt/ml/code/
 
 # this environment variable is used by the SageMaker training toolkit to determine our program entry point
 ENV SAGEMAKER_PROGRAM train.py
 
-COPY stable-diffusion-webui /opt/ml/code/
 RUN git clone https://github.com/xieyongliang/sd_dreambooth_extension.git /opt/ml/code/extensions/sd_dreambooth_extension
 
 RUN python3 -m venv /opt/ml/code/venv

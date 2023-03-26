@@ -1,6 +1,7 @@
 FROM public.ecr.aws/l1s7l7p8/all-in-one-ai-stable-diffusion-webui-training:latest
 
 COPY train.py /opt/ml/code
+COPY train.sh /opt/ml/code
 COPY train_dreambooth.py /opt/ml/code
 COPY stable-diffusion-webui /opt/ml/code/
 
