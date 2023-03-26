@@ -5,13 +5,7 @@ import shutil
 import traceback
 import boto3
 from botocore.exceptions import ClientError
-from extensions.sd_dreambooth_extension.dreambooth.db_config import DreamboothConfig
-from extensions.sd_dreambooth_extension.scripts.dreambooth import start_training_from_config, create_model
-from extensions.sd_dreambooth_extension.scripts.dreambooth import performance_wizard, training_wizard
-from extensions.sd_dreambooth_extension.dreambooth.db_concept import Concept
-from modules import paths
 import glob
-from modules import shared
 
 def upload_s3files(s3uri, file_path_with_pattern):
     pos = s3uri.find('/', 5)
@@ -62,8 +56,16 @@ parser.add_argument("--lora-models-path", type=str, help="Path to directory to s
 
 args = parser.parse_args()
 
+from modules import paths
+from modules import shared
+
 shared.cmd_opts.dreambooth_models_path = args.dreambooth_models_path
 shared.cmd_opts.lora_models_path = args.lora_models_path
+
+from extensions.sd_dreambooth_extension.dreambooth.db_config import DreamboothConfig
+from extensions.sd_dreambooth_extension.scripts.dreambooth import start_training_from_config, create_model
+from extensions.sd_dreambooth_extension.scripts.dreambooth import performance_wizard, training_wizard
+from extensions.sd_dreambooth_extension.dreambooth.db_concept import Concept
 
 train_args = json.loads(args.train_args)
 db_create_new_db_model = train_args['train_dreambooth_settings']['db_create_new_db_model']
