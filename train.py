@@ -10,7 +10,7 @@ parser.add_argument('--dreambooth-config-id', default='', type=str, help='Dreamb
 
 args = parser.parse_args()
 
-cmd = "bash train.sh --lora-models-path /opt/ml/input/data/lora --dreambooth-models-path /opt/ml/input/data/dreambooth --train-args {0} --sd-models-s3uri {1} --db-models-s3uri {2} --lora-models-s3uri {3} --dreambooth-config-id {4}".format(args.train_args, args.sd_models_s3uri, args.db_models_s3uri, args.lora_models_s3uri, args.dreambooth_config_id)
+cmd = "bash train.sh --lora-models-path /opt/ml/input/data/lora --dreambooth-models-path /opt/ml/input/data/dreambooth --train-args '{0}' --sd-models-s3uri {1} --db-models-s3uri {2} --lora-models-s3uri {3} --dreambooth-config-id {4}".format(args.train_args, args.sd_models_s3uri, args.db_models_s3uri, args.lora_models_s3uri, args.dreambooth_config_id)
 
 os.system('mkdir -p /opt/ml/input/data/lora')
 os.system('mkdir -p /opt/ml/input/data/dreambooth')
