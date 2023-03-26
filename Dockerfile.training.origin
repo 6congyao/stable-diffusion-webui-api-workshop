@@ -14,6 +14,7 @@ RUN mkdir -p /opt/ml/code
 RUN pip3 install sagemaker-training
 
 COPY train.py /opt/ml/code/
+COPY train_dreambooth.py /opt/ml/code
 
 # this environment variable is used by the SageMaker training toolkit to determine our program entry point
 ENV SAGEMAKER_PROGRAM train.py
