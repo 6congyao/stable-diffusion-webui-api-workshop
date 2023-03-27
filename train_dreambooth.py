@@ -56,12 +56,6 @@ parser.add_argument("--lora-models-path", type=str, help="Path to directory to s
 
 args = parser.parse_args()
 
-from modules import paths
-from modules import shared
-
-shared.cmd_opts.dreambooth_models_path = args.dreambooth_models_path
-shared.cmd_opts.lora_models_path = args.lora_models_path
-
 from extensions.sd_dreambooth_extension.dreambooth.db_config import DreamboothConfig
 from extensions.sd_dreambooth_extension.scripts.dreambooth import start_training_from_config, create_model
 from extensions.sd_dreambooth_extension.scripts.dreambooth import performance_wizard, training_wizard
@@ -203,10 +197,10 @@ try:
 except:
     cmd_lora_models_path = None
 
-db_model_dir = os.path.dirname(cmd_dreambooth_models_path) if cmd_dreambooth_models_path else paths.models_path
+db_model_dir = os.path.dirname(cmd_dreambooth_models_path)
 db_model_dir = os.path.join(db_model_dir, "dreambooth")
 
-lora_model_dir = os.path.dirname(cmd_lora_models_path) if cmd_lora_models_path else paths.models_path
+lora_model_dir = os.path.dirname(cmd_lora_models_path)
 lora_model_dir = os.path.join(lora_model_dir, "lora")
 
 print('---models path---', sd_models_dir, lora_model_dir)
