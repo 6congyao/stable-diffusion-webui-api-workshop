@@ -1,10 +1,6 @@
 FROM public.ecr.aws/l1s7l7p8/all-in-one-ai-stable-diffusion-webui-training:latest
 
 COPY train.py /opt/ml/code
-COPY train.sh /opt/ml/code
-COPY train_dreambooth.py /opt/ml/code
 COPY stable-diffusion-webui /opt/ml/code/
 
 RUN git clone https://github.com/xieyongliang/sd_dreambooth_extension.git /opt/ml/code/extensions/sd_dreambooth_extension
-RUN . /opt/ml/code/venv/bin/activate && cd /opt/ml/code/extensions/sd_dreambooth_extension && pip install -r requirements.txt
-RUN . /opt/ml/code/venv/bin/activate && pip install boto3 pandas matplotlib gradio
