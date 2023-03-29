@@ -625,6 +625,12 @@ class Api:
             with self.queue_lock:
                 modules.sd_models.reload_model_weights()
 
+        import os
+        os.system('ls -l /opt/ml/model')
+        os.system('ls -l /opt/ml/model/Stable-diffusion')
+        os.system('ls -l /opt/ml/model/ControlNet')
+        os.system('ls -l /opt/ml/model/Lora')
+
         try:
             if req.task == 'text-to-image':
                 response = self.text2imgapi(req.txt2img_payload)
