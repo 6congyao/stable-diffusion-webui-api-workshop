@@ -27,6 +27,8 @@ import piexif
 import piexif.helper
 from typing import Union
 import traceback
+import modules.sd_models
+import modules.shared
 
 def upscaler_to_index(name: str):
     try:
@@ -617,6 +619,11 @@ class Api:
     def invocations(self, req: InvocationsRequest):
         print('-------invocation------')
         print(req)
+
+        if req.model != None:
+            modules.shared.sd_model_checkpoint = req.model
+            with self.queue_lock:
+                modules.sd_models.reload_model_weights()
 
         try:
             if req.task == 'text-to-image':
