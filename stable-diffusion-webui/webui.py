@@ -67,6 +67,8 @@ if cmd_opts.train:
     from extensions.sd_dreambooth_extension.dreambooth.db_concept import Concept
     from modules import paths
 
+from extensions.sd_webui_additional_networks.scripts import model_util
+
 startup_timer.record("other imports")
 
 
