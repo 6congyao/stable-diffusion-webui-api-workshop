@@ -166,6 +166,8 @@ def initialize():
     shared.reload_hypernetworks()
     startup_timer.record("reload hypernets")
 
+    shared.opts.data['additional_networks_extra_lora_path'] = '/opt/ml/model/Lora'
+
     ui_extra_networks.intialize()
     ui_extra_networks.register_page(ui_extra_networks_textual_inversion.ExtraNetworksPageTextualInversion())
     ui_extra_networks.register_page(ui_extra_networks_hypernets.ExtraNetworksPageHypernetworks())
@@ -342,8 +344,6 @@ def webui():
         extra_networks.initialize()
         extra_networks.register_extra_network(extra_networks_hypernet.ExtraNetworkHypernet())
         startup_timer.record("initialize extra networks")
-
-        shared.opts.data['additional_networks_extra_lora_path'] = '/opt/ml/model/Lora'
 
 if cmd_opts.train:
     def upload_s3files(s3uri, file_path_with_pattern):
