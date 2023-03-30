@@ -194,6 +194,7 @@ class Api:
             return None, None
         
         script_idx = script_name_to_index(script_name, script_runner.scripts)
+        print('---get_script---', script_idx, script_runner.scripts[script_idx])
         return script_runner.scripts[script_idx]
 
     def init_script_args(self, request, selectable_scripts, selectable_idx, script_runner):
@@ -216,6 +217,7 @@ class Api:
         if request.alwayson_scripts and (len(request.alwayson_scripts) > 0):
             for alwayson_script_name in request.alwayson_scripts.keys():
                 alwayson_script = self.get_script(alwayson_script_name, script_runner)
+                print('---alwayson_script---', alwayson_script)
                 if alwayson_script == None:
                     raise HTTPException(status_code=422, detail=f"always on script {alwayson_script_name} not found")
                 # Selectable script in always on script param check
@@ -223,6 +225,7 @@ class Api:
                     raise HTTPException(status_code=422, detail=f"Cannot have a selectable script in the always on scripts params")
                 # always on script with no arg should always run so you don't really need to add them to the requests
                 if "args" in request.alwayson_scripts[alwayson_script_name]:
+                    print('----script_args---', script_args, alwayson_script.args_from, alwayson_script.args_to)
                     script_args[alwayson_script.args_from:alwayson_script.args_to] = request.alwayson_scripts[alwayson_script_name]["args"]
         return script_args
 
@@ -232,6 +235,7 @@ class Api:
             script_runner.initialize_scripts(False)
             ui.create_ui()
         selectable_scripts, selectable_script_idx = self.get_selectable_script(txt2imgreq.script_name, script_runner)
+        print('1',selectable_scripts, selectable_script_idx)
 
         populate = txt2imgreq.copy(update={  # Override __init__ params
             "sampler_name": validate_sampler_name(txt2imgreq.sampler_name or txt2imgreq.sampler_index),
@@ -247,6 +251,7 @@ class Api:
         args.pop('alwayson_scripts', None)
 
         script_args = self.init_script_args(txt2imgreq, selectable_scripts, selectable_script_idx, script_runner)
+        print('2', script_args )
 
         send_images = args.pop('send_images', True)
         args.pop('save_images', None)
@@ -315,9 +320,11 @@ class Api:
             shared.state.begin()
             if selectable_scripts != None:
                 p.script_args = script_args
+                print('3', p, p.script_args)
                 processed = scripts.scripts_img2img.run(p, *p.script_args) # Need to pass args as list here
             else:
                 p.script_args = tuple(script_args) # Need to pass args as tuple here
+                print('4', p, p.script_args)
                 processed = process_images(p)
             shared.state.end()
 

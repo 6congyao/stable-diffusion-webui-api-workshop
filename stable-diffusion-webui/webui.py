@@ -177,7 +177,8 @@ def initialize():
     startup_timer.record("extra networks")
 
     shared.opts.data['additional_networks_extra_lora_path'] = '/opt/ml/model/Lora'
-    model_util.model_util.update_models()
+    model_util.update_models()
+    print('---0---', model_util.lora_models, model_util.lora_model_names)
 
     if cmd_opts.tls_keyfile is not None and cmd_opts.tls_keyfile is not None:
 
