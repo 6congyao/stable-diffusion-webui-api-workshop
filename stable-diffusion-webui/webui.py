@@ -67,6 +67,7 @@ if cmd_opts.train:
     from extensions.sd_dreambooth_extension.dreambooth.db_concept import Concept
     from modules import paths
 
+sys.path.append('/opt/ml/code/stable-diffusion-webui/extensions/sd_webui_additional_networks')
 from extensions.sd_webui_additional_networks.scripts import model_util
 
 startup_timer.record("other imports")
@@ -175,7 +176,6 @@ def initialize():
     extra_networks.register_extra_network(extra_networks_hypernet.ExtraNetworkHypernet())
     startup_timer.record("extra networks")
 
-    sys.path.append('/opt/ml/code/stable-diffusion-webui/extensions/sd_webui_additional_networks')
     shared.opts.data['additional_networks_extra_lora_path'] = '/opt/ml/model/Lora'
     model_util.model_util.update_models()
 
