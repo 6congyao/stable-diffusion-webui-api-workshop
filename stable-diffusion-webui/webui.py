@@ -67,7 +67,7 @@ if cmd_opts.train:
     from extensions.sd_dreambooth_extension.dreambooth.db_concept import Concept
     from modules import paths
 
-sys.path.append('/opt/ml/code/stable-diffusion-webui/extensions/sd_webui_additional_networks')
+sys.path.append('/opt/ml/code/extensions/sd_webui_additional_networks')
 from extensions.sd_webui_additional_networks.scripts import model_util
 
 startup_timer.record("other imports")
