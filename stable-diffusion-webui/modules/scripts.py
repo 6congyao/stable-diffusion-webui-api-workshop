@@ -302,6 +302,7 @@ class ScriptRunner:
             elif visibility:
                 self.scripts.append(script)
                 self.selectable_scripts.append(script)
+        print('----initialize_scripts----', is_img2img, self.alwayson_scripts)
 
     def setup_ui(self):
         self.titles = [wrap_call(script.title, script.filename, "title") or f"{script.filename} [error]" for script in self.selectable_scripts]
@@ -336,6 +337,8 @@ class ScriptRunner:
                 create_script_ui(script, inputs, inputs_alwayson)
 
             script.group = group
+
+        print('----create_script_ui---', self.alwayson_scripts)
 
         dropdown = gr.Dropdown(label="Script", elem_id="script_list", choices=["None"] + self.titles, value="None", type="index")
         inputs[0] = dropdown

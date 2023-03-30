@@ -60,9 +60,7 @@ if cmd_opts.train:
     import boto3
     import traceback
     from botocore.exceptions import ClientError
-    import requests
     import json
-    import uuid
     from extensions.sd_dreambooth_extension.dreambooth.db_config import DreamboothConfig
     from extensions.sd_dreambooth_extension.scripts.dreambooth import start_training_from_config, create_model
     from extensions.sd_dreambooth_extension.scripts.dreambooth import performance_wizard, training_wizard
@@ -166,8 +164,6 @@ def initialize():
     shared.reload_hypernetworks()
     startup_timer.record("reload hypernets")
 
-    shared.opts.data['additional_networks_extra_lora_path'] = '/opt/ml/model/Lora'
-
     ui_extra_networks.intialize()
     ui_extra_networks.register_page(ui_extra_networks_textual_inversion.ExtraNetworksPageTextualInversion())
     ui_extra_networks.register_page(ui_extra_networks_hypernets.ExtraNetworksPageHypernetworks())
@@ -176,6 +172,10 @@ def initialize():
     extra_networks.initialize()
     extra_networks.register_extra_network(extra_networks_hypernet.ExtraNetworkHypernet())
     startup_timer.record("extra networks")
+
+    sys.path.append('/opt/ml/code/stable-diffusion-webui/extensions/sd_webui_additional_networks')
+    shared.opts.data['additional_networks_extra_lora_path'] = '/opt/ml/model/Lora'
+    model_util.model_util.update_models()
 
     if cmd_opts.tls_keyfile is not None and cmd_opts.tls_keyfile is not None:
 

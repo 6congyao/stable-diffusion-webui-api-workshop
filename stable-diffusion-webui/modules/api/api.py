@@ -189,6 +189,7 @@ class Api:
         return ScriptsList(txt2img = t2ilist, img2img = i2ilist)  
 
     def get_script(self, script_name, script_runner):
+        print('---get_script---', script_runner, script_name, script_runner)
         if script_name is None or script_name == "":
             return None, None
         
