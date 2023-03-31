@@ -6,7 +6,6 @@ from inflection import underscore
 from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img
 from modules.shared import sd_upscalers, opts, parser
 from typing import Dict, List
-from typing import Optional
 
 API_NOT_ALLOWED = [
     "self",
@@ -290,14 +289,3 @@ class MemoryResponse(BaseModel):
 class ScriptsList(BaseModel):
     txt2img: list = Field(default=None,title="Txt2img", description="Titles of scripts (txt2img)")
     img2img: list = Field(default=None,title="Img2img", description="Titles of scripts (img2img)")
-
-class InvocationsRequest(BaseModel):
-    task: str
-    model: Optional[str]
-    txt2img_payload: Optional[StableDiffusionTxt2ImgProcessingAPI]
-    img2img_payload: Optional[StableDiffusionImg2ImgProcessingAPI]
-    extras_single_payload: Optional[ExtrasSingleImageRequest]
-    extras_batch_payload: Optional[ExtrasBatchImagesRequest]
-
-class PingResponse(BaseModel):
-    status: str

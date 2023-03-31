@@ -55,6 +55,18 @@ then
     LAUNCH_SCRIPT="launch.py"
 fi
 
+# this script cannot be run as root by default
+can_run_as_root=0
+
+# read any command line flags to the webui.sh script
+while getopts "f" flag > /dev/null 2>&1
+do
+    case ${flag} in
+        f) can_run_as_root=1;;
+        *) break;;
+    esac
+done
+
 # Disable sentry logging
 export ERROR_REPORTING=FALSE
 
@@ -69,11 +81,27 @@ printf "\e[1m\e[32mInstall script for stable-diffusion + Web UI\n"
 printf "\e[1m\e[34mTested on Debian 11 (Bullseye)\e[0m"
 printf "\n%s\n" "${delimiter}"
 
-printf "\n%s\n" "${delimiter}"
-printf "Repo already cloned, using it as install directory"
-printf "\n%s\n" "${delimiter}"
-install_dir="${PWD}/../"
-clone_dir="${PWD##*/}"
+# Do not run as root
+if [[ $(id -u) -eq 0 && can_run_as_root -eq 0 ]]
+then
+    printf "\n%s\n" "${delimiter}"
+    printf "\e[1m\e[31mERROR: This script must not be launched as root, aborting...\e[0m"
+    printf "\n%s\n" "${delimiter}"
+    exit 1
+else
+    printf "\n%s\n" "${delimiter}"
+    printf "Running on \e[1m\e[32m%s\e[0m user" "$(whoami)"
+    printf "\n%s\n" "${delimiter}"
+fi
+
+if [[ -d .git ]]
+then
+    printf "\n%s\n" "${delimiter}"
+    printf "Repo already cloned, using it as install directory"
+    printf "\n%s\n" "${delimiter}"
+    install_dir="${PWD}/../"
+    clone_dir="${PWD##*/}"
+fi
 
 # Check prerequisites
 gpu_info=$(lspci 2>/dev/null | grep VGA)

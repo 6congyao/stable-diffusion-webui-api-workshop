@@ -3,11 +3,15 @@ import io
 import time
 import datetime
 import uvicorn
+import gradio as gr
 from threading import Lock
 from io import BytesIO
 from gradio.processing_utils import decode_base64_to_file
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, FastAPI, Request, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.exceptions import HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from secrets import compare_digest
 
 import modules.shared as shared
@@ -18,17 +22,13 @@ from modules.textual_inversion.textual_inversion import create_embedding, train_
 from modules.textual_inversion.preprocess import preprocess
 from modules.hypernetworks.hypernetwork import create_hypernetwork, train_hypernetwork
 from PIL import PngImagePlugin,Image
-from modules.sd_models import checkpoints_list
+from modules.sd_models import checkpoints_list, unload_model_weights, reload_model_weights
 from modules.sd_models_config import find_checkpoint_config_near_filename
 from modules.realesrgan_model import get_realesrgan_models
 from modules import devices
 from typing import List
 import piexif
 import piexif.helper
-from typing import Union
-import traceback
-import modules.sd_models
-import modules.shared
 
 def upscaler_to_index(name: str):
     try:
@@ -94,6 +94,16 @@ def encode_pil_to_base64(image):
     return base64.b64encode(bytes_data)
 
 def api_middleware(app: FastAPI):
+    rich_available = True
+    try:
+        import anyio # importing just so it can be placed on silent list
+        import starlette # importing just so it can be placed on silent list
+        from rich.console import Console
+        console = Console()
+    except:
+        import traceback
+        rich_available = False
+
     @app.middleware("http")
     async def log_and_time(req: Request, call_next):
         ts = time.time()
@@ -113,6 +123,36 @@ def api_middleware(app: FastAPI):
                 duration = duration,
             ))
         return res
+
+    def handle_exception(request: Request, e: Exception):
+        err = {
+            "error": type(e).__name__,
+            "detail": vars(e).get('detail', ''),
+            "body": vars(e).get('body', ''),
+            "errors": str(e),
+        }
+        print(f"API error: {request.method}: {request.url} {err}")
+        if not isinstance(e, HTTPException): # do not print backtrace on known httpexceptions
+            if rich_available:
+                console.print_exception(show_locals=True, max_frames=2, extra_lines=1, suppress=[anyio, starlette], word_wrap=False, width=min([console.width, 200]))
+            else:
+                traceback.print_exc()
+        return JSONResponse(status_code=vars(e).get('status_code', 500), content=jsonable_encoder(err))
+
+    @app.middleware("http")
+    async def exception_handling(request: Request, call_next):
+        try:
+            return await call_next(request)
+        except Exception as e:
+            return handle_exception(request, e)
+
+    @app.exception_handler(Exception)
+    async def fastapi_exception_handler(request: Request, e: Exception):
+        return handle_exception(request, e)
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, e: HTTPException):
+        return handle_exception(request, e)
 
 
 class Api:
@@ -154,9 +194,12 @@ class Api:
         self.add_api_route("/sdapi/v1/train/embedding", self.train_embedding, methods=["POST"], response_model=TrainResponse)
         self.add_api_route("/sdapi/v1/train/hypernetwork", self.train_hypernetwork, methods=["POST"], response_model=TrainResponse)
         self.add_api_route("/sdapi/v1/memory", self.get_memory, methods=["GET"], response_model=MemoryResponse)
+        self.add_api_route("/sdapi/v1/unload-checkpoint", self.unloadapi, methods=["POST"])
+        self.add_api_route("/sdapi/v1/reload-checkpoint", self.reloadapi, methods=["POST"])
         self.add_api_route("/sdapi/v1/scripts", self.get_scripts_list, methods=["GET"], response_model=ScriptsList)
-        self.add_api_route("/invocations", self.invocations, methods=["POST"], response_model=Union[TextToImageResponse, ImageToImageResponse, ExtrasSingleImageResponse, ExtrasBatchImagesResponse])
-        self.add_api_route("/ping", self.ping, methods=["GET"], response_model=PingResponse)
+
+        self.default_script_arg_txt2img = []
+        self.default_script_arg_img2img = []
 
     def add_api_route(self, path: str, endpoint, **kwargs):
         if shared.cmd_opts.api_auth:
@@ -174,8 +217,6 @@ class Api:
         if script_name is None or script_name == "":
             return None, None
 
-        print('---get_selectable_script---', script_runner.selectable_scripts)
-
         script_idx = script_name_to_index(script_name, script_runner.selectable_scripts)
         script = script_runner.selectable_scripts[script_idx]
         return script, script_idx
@@ -184,20 +225,16 @@ class Api:
         t2ilist = [str(title.lower()) for title in scripts.scripts_txt2img.titles]
         i2ilist = [str(title.lower()) for title in scripts.scripts_img2img.titles]
 
-        print('---get_scripts_list----', t2ilist, i2ilist)
-
         return ScriptsList(txt2img = t2ilist, img2img = i2ilist)  
 
     def get_script(self, script_name, script_runner):
-        print('---get_script---', script_runner, script_name, script_runner)
         if script_name is None or script_name == "":
             return None, None
         
         script_idx = script_name_to_index(script_name, script_runner.scripts)
-        print('---get_script---', script_idx, script_runner.scripts[script_idx])
         return script_runner.scripts[script_idx]
 
-    def init_script_args(self, request, selectable_scripts, selectable_idx, script_runner):
+    def init_default_script_args(self, script_runner):
         #find max idx from the scripts in runner and generate a none array to init script_args
         last_arg_index = 1
         for script in script_runner.scripts:
@@ -205,19 +242,29 @@ class Api:
                 last_arg_index = script.args_to
         # None everywhere except position 0 to initialize script args
         script_args = [None]*last_arg_index
+        script_args[0] = 0
+
+        # get default values
+        with gr.Blocks(): # will throw errors calling ui function without this
+            for script in script_runner.scripts:
+                if script.ui(script.is_img2img):
+                    ui_default_values = []
+                    for elem in script.ui(script.is_img2img):
+                        ui_default_values.append(elem.value)
+                    script_args[script.args_from:script.args_to] = ui_default_values
+        return script_args
+
+    def init_script_args(self, request, default_script_args, selectable_scripts, selectable_idx, script_runner):
+        script_args = default_script_args.copy()
         # position 0 in script_arg is the idx+1 of the selectable script that is going to be run when using scripts.scripts_*2img.run()
         if selectable_scripts:
             script_args[selectable_scripts.args_from:selectable_scripts.args_to] = request.script_args
             script_args[0] = selectable_idx + 1
-        else:
-            # when [0] = 0 no selectable script to run
-            script_args[0] = 0
 
         # Now check for always on scripts
         if request.alwayson_scripts and (len(request.alwayson_scripts) > 0):
             for alwayson_script_name in request.alwayson_scripts.keys():
                 alwayson_script = self.get_script(alwayson_script_name, script_runner)
-                print('---alwayson_script---', alwayson_script)
                 if alwayson_script == None:
                     raise HTTPException(status_code=422, detail=f"always on script {alwayson_script_name} not found")
                 # Selectable script in always on script param check
@@ -225,7 +272,6 @@ class Api:
                     raise HTTPException(status_code=422, detail=f"Cannot have a selectable script in the always on scripts params")
                 # always on script with no arg should always run so you don't really need to add them to the requests
                 if "args" in request.alwayson_scripts[alwayson_script_name]:
-                    print('----script_args---', script_args, alwayson_script.args_from, alwayson_script.args_to)
                     script_args[alwayson_script.args_from:alwayson_script.args_to] = request.alwayson_scripts[alwayson_script_name]["args"]
         return script_args
 
@@ -234,8 +280,9 @@ class Api:
         if not script_runner.scripts:
             script_runner.initialize_scripts(False)
             ui.create_ui()
+        if not self.default_script_arg_txt2img:
+            self.default_script_arg_txt2img = self.init_default_script_args(script_runner)
         selectable_scripts, selectable_script_idx = self.get_selectable_script(txt2imgreq.script_name, script_runner)
-        print('1',selectable_scripts, selectable_script_idx)
 
         populate = txt2imgreq.copy(update={  # Override __init__ params
             "sampler_name": validate_sampler_name(txt2imgreq.sampler_name or txt2imgreq.sampler_index),
@@ -250,8 +297,7 @@ class Api:
         args.pop('script_args', None) # will refeed them to the pipeline directly after initializing them
         args.pop('alwayson_scripts', None)
 
-        script_args = self.init_script_args(txt2imgreq, selectable_scripts, selectable_script_idx, script_runner)
-        print('2', script_args )
+        script_args = self.init_script_args(txt2imgreq, self.default_script_arg_txt2img, selectable_scripts, selectable_script_idx, script_runner)
 
         send_images = args.pop('send_images', True)
         args.pop('save_images', None)
@@ -288,6 +334,8 @@ class Api:
         if not script_runner.scripts:
             script_runner.initialize_scripts(True)
             ui.create_ui()
+        if not self.default_script_arg_img2img:
+            self.default_script_arg_img2img = self.init_default_script_args(script_runner)
         selectable_scripts, selectable_script_idx = self.get_selectable_script(img2imgreq.script_name, script_runner)
 
         populate = img2imgreq.copy(update={  # Override __init__ params
@@ -305,7 +353,7 @@ class Api:
         args.pop('script_args', None)  # will refeed them to the pipeline directly after initializing them
         args.pop('alwayson_scripts', None)
 
-        script_args = self.init_script_args(img2imgreq, selectable_scripts, selectable_script_idx, script_runner)
+        script_args = self.init_script_args(img2imgreq, self.default_script_arg_img2img, selectable_scripts, selectable_script_idx, script_runner)
 
         send_images = args.pop('send_images', True)
         args.pop('save_images', None)
@@ -320,11 +368,9 @@ class Api:
             shared.state.begin()
             if selectable_scripts != None:
                 p.script_args = script_args
-                print('3', p, p.script_args)
                 processed = scripts.scripts_img2img.run(p, *p.script_args) # Need to pass args as list here
             else:
                 p.script_args = tuple(script_args) # Need to pass args as tuple here
-                print('4', p, p.script_args)
                 processed = process_images(p)
             shared.state.end()
 
@@ -427,6 +473,16 @@ class Api:
 
     def interruptapi(self):
         shared.state.interrupt()
+
+        return {}
+
+    def unloadapi(self):
+        unload_model_weights()
+
+        return {}
+
+    def reloadapi(self):
+        reload_model_weights()
 
         return {}
 
@@ -627,43 +683,6 @@ class Api:
         except Exception as err:
             cuda = { 'error': f'{err}' }
         return MemoryResponse(ram = ram, cuda = cuda)
-
-    def invocations(self, req: InvocationsRequest):
-        print('-------invocation------')
-        print(req)
-
-        if req.model != None:
-            modules.shared.opts.sd_model_checkpoint = req.model
-            with self.queue_lock:
-                modules.sd_models.reload_model_weights()
-
-        import os
-        os.system('ls -l /opt/ml/model')
-        os.system('ls -l /opt/ml/model/Stable-diffusion')
-        os.system('ls -l /opt/ml/model/ControlNet')
-        os.system('ls -l /opt/ml/model/Lora')
-
-        try:
-            if req.task == 'text-to-image':
-                response = self.text2imgapi(req.txt2img_payload)
-                return response
-            elif req.task == 'image-to-image':
-                response = self.img2imgapi(req.img2img_payload)
-                return response
-            elif req.task == 'extras-single-image':
-                response = self.extras_single_image_api(req.extras_single_payload)
-                return response
-            elif req.task == 'extras-batch-images':
-                response = self.extras_batch_images_api(req.extras_batch_payload)
-                return response
-            else:
-                raise NotImplementedError
-        except Exception as e:
-            traceback.print_exc()
-
-    def ping(self):
-        print('-------ping------')
-        return {'status': 'Healthy'}
 
     def launch(self, server_name, port):
         self.app.include_router(self.router)
