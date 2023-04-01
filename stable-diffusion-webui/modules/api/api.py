@@ -29,6 +29,10 @@ from modules import devices
 from typing import List
 import piexif
 import piexif.helper
+from typing import Union
+import traceback
+import modules.sd_models
+import modules.shared
 
 def upscaler_to_index(name: str):
     try:
@@ -197,6 +201,8 @@ class Api:
         self.add_api_route("/sdapi/v1/unload-checkpoint", self.unloadapi, methods=["POST"])
         self.add_api_route("/sdapi/v1/reload-checkpoint", self.reloadapi, methods=["POST"])
         self.add_api_route("/sdapi/v1/scripts", self.get_scripts_list, methods=["GET"], response_model=ScriptsList)
+        self.add_api_route("/invocations", self.invocations, methods=["POST"], response_model=Union[TextToImageResponse, ImageToImageResponse, ExtrasSingleImageResponse, ExtrasBatchImagesResponse])
+        self.add_api_route("/ping", self.ping, methods=["GET"], response_model=PingResponse)
 
         self.default_script_arg_txt2img = []
         self.default_script_arg_img2img = []
@@ -225,13 +231,17 @@ class Api:
         t2ilist = [str(title.lower()) for title in scripts.scripts_txt2img.titles]
         i2ilist = [str(title.lower()) for title in scripts.scripts_img2img.titles]
 
+        print('---get_scripts_list----', t2ilist, i2ilist)
+
         return ScriptsList(txt2img = t2ilist, img2img = i2ilist)  
 
     def get_script(self, script_name, script_runner):
+        print('---get_script---', script_runner, script_name, script_runner)
         if script_name is None or script_name == "":
             return None, None
         
         script_idx = script_name_to_index(script_name, script_runner.scripts)
+        print('---get_script---', script_idx, script_runner.scripts[script_idx])
         return script_runner.scripts[script_idx]
 
     def init_default_script_args(self, script_runner):
@@ -265,6 +275,7 @@ class Api:
         if request.alwayson_scripts and (len(request.alwayson_scripts) > 0):
             for alwayson_script_name in request.alwayson_scripts.keys():
                 alwayson_script = self.get_script(alwayson_script_name, script_runner)
+                print('---alwayson_script---', alwayson_script)
                 if alwayson_script == None:
                     raise HTTPException(status_code=422, detail=f"always on script {alwayson_script_name} not found")
                 # Selectable script in always on script param check
@@ -272,6 +283,7 @@ class Api:
                     raise HTTPException(status_code=422, detail=f"Cannot have a selectable script in the always on scripts params")
                 # always on script with no arg should always run so you don't really need to add them to the requests
                 if "args" in request.alwayson_scripts[alwayson_script_name]:
+                    print('----script_args---', script_args, alwayson_script.args_from, alwayson_script.args_to)
                     script_args[alwayson_script.args_from:alwayson_script.args_to] = request.alwayson_scripts[alwayson_script_name]["args"]
         return script_args
 
@@ -283,6 +295,7 @@ class Api:
         if not self.default_script_arg_txt2img:
             self.default_script_arg_txt2img = self.init_default_script_args(script_runner)
         selectable_scripts, selectable_script_idx = self.get_selectable_script(txt2imgreq.script_name, script_runner)
+        print('1',selectable_scripts, selectable_script_idx)
 
         populate = txt2imgreq.copy(update={  # Override __init__ params
             "sampler_name": validate_sampler_name(txt2imgreq.sampler_name or txt2imgreq.sampler_index),
@@ -298,6 +311,7 @@ class Api:
         args.pop('alwayson_scripts', None)
 
         script_args = self.init_script_args(txt2imgreq, self.default_script_arg_txt2img, selectable_scripts, selectable_script_idx, script_runner)
+        print('2', script_args )
 
         send_images = args.pop('send_images', True)
         args.pop('save_images', None)
@@ -683,6 +697,43 @@ class Api:
         except Exception as err:
             cuda = { 'error': f'{err}' }
         return MemoryResponse(ram = ram, cuda = cuda)
+
+    def invocations(self, req: InvocationsRequest):
+        print('-------invocation------')
+        print(req)
+
+        if req.model != None:
+            modules.shared.opts.sd_model_checkpoint = req.model
+            with self.queue_lock:
+                modules.sd_models.reload_model_weights()
+
+        import os
+        os.system('ls -l /opt/ml/model')
+        os.system('ls -l /opt/ml/model/Stable-diffusion')
+        os.system('ls -l /opt/ml/model/ControlNet')
+        os.system('ls -l /opt/ml/model/Lora')
+
+        try:
+            if req.task == 'text-to-image':
+                response = self.text2imgapi(req.txt2img_payload)
+                return response
+            elif req.task == 'image-to-image':
+                response = self.img2imgapi(req.img2img_payload)
+                return response
+            elif req.task == 'extras-single-image':
+                response = self.extras_single_image_api(req.extras_single_payload)
+                return response
+            elif req.task == 'extras-batch-images':
+                response = self.extras_batch_images_api(req.extras_batch_payload)
+                return response
+            else:
+                raise NotImplementedError
+        except Exception as e:
+            traceback.print_exc()
+
+    def ping(self):
+        print('-------ping------')
+        return {'status': 'Healthy'}
 
     def launch(self, server_name, port):
         self.app.include_router(self.router)
