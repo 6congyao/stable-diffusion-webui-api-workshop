@@ -29,6 +29,7 @@ from modules import devices
 from typing import List
 import piexif
 import piexif.helper
+import asyncio
 from typing import Union
 import traceback
 import modules.sd_models
@@ -231,20 +232,25 @@ class Api:
         t2ilist = [str(title.lower()) for title in scripts.scripts_txt2img.titles]
         i2ilist = [str(title.lower()) for title in scripts.scripts_img2img.titles]
 
-        print('---get_scripts_list----', t2ilist, i2ilist)
-
         return ScriptsList(txt2img = t2ilist, img2img = i2ilist)  
 
     def get_script(self, script_name, script_runner):
-        print('---get_script---', script_runner, script_name, script_runner)
         if script_name is None or script_name == "":
             return None, None
         
         script_idx = script_name_to_index(script_name, script_runner.scripts)
-        print('---get_script---', script_idx, script_runner.scripts[script_idx])
         return script_runner.scripts[script_idx]
 
     def init_default_script_args(self, script_runner):
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError as e:
+            if str(e).startswith('There is no current event loop in thread'):
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            else:
+                raise
+
         #find max idx from the scripts in runner and generate a none array to init script_args
         last_arg_index = 1
         for script in script_runner.scripts:
@@ -275,7 +281,6 @@ class Api:
         if request.alwayson_scripts and (len(request.alwayson_scripts) > 0):
             for alwayson_script_name in request.alwayson_scripts.keys():
                 alwayson_script = self.get_script(alwayson_script_name, script_runner)
-                print('---alwayson_script---', alwayson_script)
                 if alwayson_script == None:
                     raise HTTPException(status_code=422, detail=f"always on script {alwayson_script_name} not found")
                 # Selectable script in always on script param check
@@ -283,7 +288,6 @@ class Api:
                     raise HTTPException(status_code=422, detail=f"Cannot have a selectable script in the always on scripts params")
                 # always on script with no arg should always run so you don't really need to add them to the requests
                 if "args" in request.alwayson_scripts[alwayson_script_name]:
-                    print('----script_args---', script_args, alwayson_script.args_from, alwayson_script.args_to)
                     script_args[alwayson_script.args_from:alwayson_script.args_to] = request.alwayson_scripts[alwayson_script_name]["args"]
         return script_args
 
@@ -295,7 +299,6 @@ class Api:
         if not self.default_script_arg_txt2img:
             self.default_script_arg_txt2img = self.init_default_script_args(script_runner)
         selectable_scripts, selectable_script_idx = self.get_selectable_script(txt2imgreq.script_name, script_runner)
-        print('1',selectable_scripts, selectable_script_idx)
 
         populate = txt2imgreq.copy(update={  # Override __init__ params
             "sampler_name": validate_sampler_name(txt2imgreq.sampler_name or txt2imgreq.sampler_index),
@@ -311,7 +314,6 @@ class Api:
         args.pop('alwayson_scripts', None)
 
         script_args = self.init_script_args(txt2imgreq, self.default_script_arg_txt2img, selectable_scripts, selectable_script_idx, script_runner)
-        print('2', script_args )
 
         send_images = args.pop('send_images', True)
         args.pop('save_images', None)
@@ -333,7 +335,7 @@ class Api:
 
         b64images = list(map(encode_pil_to_base64, processed.images)) if send_images else []
 
-        return TextToImageResponse(images=b64images, parameters=vars(txt2imgreq), info=processed.js())
+        return TextToImageResponse(images=b64images, parameters=vars(populate), info=processed.js())
 
     def img2imgapi(self, img2imgreq: StableDiffusionImg2ImgProcessingAPI):
         init_images = img2imgreq.init_images
@@ -394,7 +396,7 @@ class Api:
             img2imgreq.init_images = None
             img2imgreq.mask = None
 
-        return ImageToImageResponse(images=b64images, parameters=vars(img2imgreq), info=processed.js())
+        return ImageToImageResponse(images=b64images, parameters=vars(populate), info=processed.js())
 
     def extras_single_image_api(self, req: ExtrasSingleImageRequest):
         reqDict = setUpscalers(req)
@@ -706,12 +708,6 @@ class Api:
             modules.shared.opts.sd_model_checkpoint = req.model
             with self.queue_lock:
                 modules.sd_models.reload_model_weights()
-
-        import os
-        os.system('ls -l /opt/ml/model')
-        os.system('ls -l /opt/ml/model/Stable-diffusion')
-        os.system('ls -l /opt/ml/model/ControlNet')
-        os.system('ls -l /opt/ml/model/Lora')
 
         try:
             if req.task == 'text-to-image':
