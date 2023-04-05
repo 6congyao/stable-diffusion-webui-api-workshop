@@ -61,10 +61,10 @@ import modules.hypernetworks.hypernetwork
 from huggingface_hub import hf_hub_download
 import boto3
 import json
+import shutil
+import traceback
 
 if cmd_opts.train:
-    import shutil
-    import traceback
     from botocore.exceptions import ClientError
     from extensions.sd_dreambooth_extension.dreambooth.db_config import DreamboothConfig
     from extensions.sd_dreambooth_extension.scripts.dreambooth import start_training_from_config, create_model
@@ -252,37 +252,48 @@ def webui():
     launch_api = cmd_opts.api
 
     if launch_api:
-            huggingface_models = json.loads(os.environ['huggingface_models']) if 'huggingface_models' in os.environ else None
-            if huggingface_models:
-                huggingface_token = huggingface_models['token']
-                os.system(f'huggingface-cli login --token {huggingface_token}')
-                hf_hub_models = huggingface_models['models']
-                for huggingface_model in hf_hub_models:
-                    repo_id = huggingface_model['repo_id']
-                    filename = huggingface_model['filename']
-                    name = huggingface_model['name']
+        models_config_s3uri = os.environ.get('models_config_s3uri', None)
+        if models_config_s3uri:
+            bucket, key = get_bucket_and_key(models_config_s3uri)
+            s3_object = s3_client.get_object(Bucket=bucket, Key=key)
+            bytes = s3_object["Body"].read()
+            payload = bytes.decode('utf8')
+            huggingface_models = json.loads(payload).get('huggingface_models', None)
+            s3_models = json.loads(payload).get('s3_models', None)
+            http_models = json.loads(payload).get('http_models', None)
+        else:
+            huggingface_models = json.loads(os.environ).get('huggingface_models', None)
+            s3_models = json.loads(os.environ).get('s3_models', None)
+            http_models = json.loads(os.environ).get('http_models', None)
 
-                    hf_hub_download(
-                        repo_id=repo_id,
-                        filename=filename,
-                        local_dir=f'/tmp/models/{name}',
-                        cache_dir='/tmp/cache/huggingface'
-                    )
+        if huggingface_models:
+            huggingface_token = huggingface_models['token']
+            os.system(f'huggingface-cli login --token {huggingface_token}')
+            hf_hub_models = huggingface_models['models']
+            for huggingface_model in hf_hub_models:
+                repo_id = huggingface_model['repo_id']
+                filename = huggingface_model['filename']
+                name = huggingface_model['name']
 
-            s3_models = json.loads(os.environ['s3_models']) if 's3_models' in os.environ else None
-            if s3_models:
-                for s3_model in s3_models:
-                    uri = s3_model['uri']
-                    name = s3_model['name']
-                    s3_download(uri, f'/tmp/models/{name}')
+                hf_hub_download(
+                    repo_id=repo_id,
+                    filename=filename,
+                    local_dir=f'/tmp/models/{name}',
+                    cache_dir='/tmp/cache/huggingface'
+                )
 
-            http_models = json.loads(os.environ['http_models']) if 'http_models' in os.environ else None
-            if http_models:
-                for http_model in http_models:
-                    uri = http_model['uri']
-                    filename = http_model['filename']
-                    name = http_model['name']
-                    http_download(uri, f'/tmp/models/{name}/{filename}')
+        if s3_models:
+            for s3_model in s3_models:
+                uri = s3_model['uri']
+                name = s3_model['name']
+                s3_download(uri, f'/tmp/models/{name}')
+
+        if http_models:
+            for http_model in http_models:
+                uri = http_model['uri']
+                filename = http_model['filename']
+                name = http_model['name']
+                http_download(uri, f'/tmp/models/{name}/{filename}')
 
     initialize()
 
@@ -628,6 +639,12 @@ if cmd_opts.train:
             traceback.print_exc()
             print(e)
 else:
+    def get_bucket_and_key(s3uri):
+        pos = s3uri.find('/', 5)
+        bucket = s3uri[5 : pos]
+        key = s3uri[pos + 1 : ]
+        return bucket, key
+
     def s3_download(s3uri, path):
         pos = s3uri.find('/', 5)
         bucket = s3uri[5 : pos]

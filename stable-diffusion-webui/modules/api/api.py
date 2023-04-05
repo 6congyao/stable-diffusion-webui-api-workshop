@@ -35,6 +35,12 @@ import traceback
 import modules.sd_models
 import modules.shared
 
+import uuid
+import os
+import boto3
+s3_client = boto3.client('s3')
+generated_images_s3uri = os.environ.get('generated_images_s3uri', None)
+
 def upscaler_to_index(name: str):
     try:
         return [x.name.lower() for x in shared.sd_upscalers].index(name.lower())
@@ -700,6 +706,24 @@ class Api:
             cuda = { 'error': f'{err}' }
         return MemoryResponse(ram = ram, cuda = cuda)
 
+    def post_invocations(self, response):
+        if generated_images_s3uri:
+            bucket, key = self.get_bucket_and_key(generated_images_s3uri)
+            b64images = response['images']
+            images = []
+            for b64image in b64images:
+                image = decode_base64_to_image(b64image).convert('RGB')
+                output = io.BytesIO()
+                image.save(output, format='JPEG')
+                image_id = str(uuid.uuid4())
+                s3_client.put_object(
+                    Body=output.getvalue(),
+                    Bucket=bucket,
+                    Key=f'{key}/{image_id}.jpg'
+                )
+                images.append(f's3://{bucket}/{key}/{image_id}.jpg')
+            response['images'] = images
+
     def invocations(self, req: InvocationsRequest):
         print('-------invocation------')
         print(req)
@@ -712,15 +736,19 @@ class Api:
         try:
             if req.task == 'text-to-image':
                 response = self.text2imgapi(req.txt2img_payload)
+                self.post_invocations(response)
                 return response
             elif req.task == 'image-to-image':
                 response = self.img2imgapi(req.img2img_payload)
+                self.post_invocations(response)
                 return response
             elif req.task == 'extras-single-image':
                 response = self.extras_single_image_api(req.extras_single_payload)
+                self.post_invocations(response)
                 return response
             elif req.task == 'extras-batch-images':
                 response = self.extras_batch_images_api(req.extras_batch_payload)
+                self.post_invocations(response)
                 return response
             else:
                 raise NotImplementedError
@@ -734,3 +762,9 @@ class Api:
     def launch(self, server_name, port):
         self.app.include_router(self.router)
         uvicorn.run(self.app, host=server_name, port=port)
+
+    def get_bucket_and_key(s3uri):
+        pos = s3uri.find('/', 5)
+        bucket = s3uri[5 : pos]
+        key = s3uri[pos + 1 : ]
+        return bucket, key
