@@ -58,6 +58,8 @@ from modules import modelloader
 from modules.shared import cmd_opts
 import modules.hypernetworks.hypernetwork
 
+from huggingface_hub import hf_hub_download
+
 if cmd_opts.train:
     import shutil
     import boto3
@@ -69,9 +71,12 @@ if cmd_opts.train:
     from extensions.sd_dreambooth_extension.scripts.dreambooth import performance_wizard, training_wizard
     from extensions.sd_dreambooth_extension.dreambooth.db_concept import Concept
     from modules import paths
-
-sys.path.append('/opt/ml/code/extensions/sd_webui_additional_networks')
-from extensions.sd_webui_additional_networks.scripts import model_util
+    import glob
+else:
+    import requests
+    cache = dict()
+    s3_client = boto3.client('s3')
+    s3_resource= boto3.resource('s3')
 
 startup_timer.record("other imports")
 
@@ -179,10 +184,6 @@ def initialize():
     extra_networks.register_extra_network(extra_networks_hypernet.ExtraNetworkHypernet())
     startup_timer.record("extra networks")
 
-    shared.opts.data['additional_networks_extra_lora_path'] = '/opt/ml/model/Lora'
-    model_util.update_models()
-    print('---0---', model_util.lora_models, model_util.lora_model_names)
-
     if cmd_opts.tls_keyfile is not None and cmd_opts.tls_keyfile is not None:
 
         try:
@@ -246,6 +247,40 @@ def api_only():
     print(f"Startup time: {startup_timer.summary()}.")
     api.launch(server_name="0.0.0.0" if cmd_opts.listen else "127.0.0.1", port=cmd_opts.port if cmd_opts.port else 7861)
 
+def download_s3files(s3uri, path):
+    pos = s3uri.find('/', 5)
+    bucket = s3uri[5 : pos]
+    key = s3uri[pos + 1 : ]
+
+    s3_bucket = s3_resource.Bucket(bucket)
+    objs = list(s3_bucket.objects.filter(Prefix=key))
+
+    if os.path.isfile('cache'):
+        cache = json.load(open('cache', 'r'))
+
+    for obj in objs:
+        if obj.key == key:
+            continue
+        response = s3_client.head_object(
+            Bucket = bucket,
+            Key =  obj.key
+        )
+        obj_key = 's3://{0}/{1}'.format(bucket, obj.key)
+        if obj_key not in  cache or cache[obj_key] != response['ETag']:
+            filename = obj.key[obj.key.rfind('/') + 1 : ]
+
+            s3_client.download_file(bucket, obj.key, os.path.join(path, filename))
+            cache[obj_key] = response['ETag']
+
+    json.dump(cache, open('cache', 'w'))
+
+def download_httpfiles(httpuri, path):
+    local_filename = httpuri.split('/')[-1]
+    with requests.get(httpuri, stream=True) as r:
+        r.raise_for_status()
+        with open(os.path.join(path, local_filename), 'wb') as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
 
 def webui():
     launch_api = cmd_opts.api
@@ -301,6 +336,36 @@ def webui():
 
         if launch_api:
             create_api(app)
+
+            huggingface_models = json.loads(os.environ['huggingface_models']) if 'huggingface_models' in os.environ else None
+            if huggingface_models:
+                huggingface_token = huggingface_models['token']
+                os.system(f'huggingface-cli login --token {huggingface_token}')
+                hf_hub_models = huggingface_models['models']
+                for huggingface_model in hf_hub_models:
+                    repo_id = huggingface_model['repo_id']
+                    filename = huggingface_model['filename']
+                    name = huggingface_model['name']
+
+                    hf_hub_download(
+                        repo_id=repo_id,
+                        filename=filename,
+                        local_dir=f'/opt/ml/code/models/{name}'
+                    )
+
+            s3_models = json.loads(os.environ['s3_models']) if 's3_models' in os.environ else None
+            if s3_models:
+                for s3_model in s3_models:
+                    uri = s3_model['uri']
+                    name = s3_model['name']
+                    download_s3files(uri, f'/opt/ml/code/models{name}')
+
+            http_models = json.loads(os.environ['http_models']) if 'http_models' in os.environ else None
+            if http_models:
+                for http_model in http_models:
+                    uri = http_model['uri']
+                    name = http_model['name']
+                    download_httpfiles(uri, f'/opt/ml/code/models{name}')
 
         ui_extra_networks.add_pages_to_demo(app)
 

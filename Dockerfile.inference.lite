@@ -4,4 +4,4 @@ COPY serve /opt/ml/code
 COPY stable-diffusion-webui /opt/ml/code/
 
 RUN git clone https://github.com/Mikubill/sd-webui-controlnet.git /opt/ml/code/extensions/sd_webui_controlnet
-RUN git clone https://github.com/kohya-ss/sd-webui-additional-networks.git /opt/ml/code/extensions/sd_webui_additional_networks
+RUN source /opt/ml/code/venv/bin/activate && pip install huggingface_hub
