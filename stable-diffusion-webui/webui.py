@@ -247,7 +247,7 @@ def api_only():
     print(f"Startup time: {startup_timer.summary()}.")
     api.launch(server_name="0.0.0.0" if cmd_opts.listen else "127.0.0.1", port=cmd_opts.port if cmd_opts.port else 7861)
 
-def download_s3files(s3uri, path):
+def s3_download(s3uri, path):
     pos = s3uri.find('/', 5)
     bucket = s3uri[5 : pos]
     key = s3uri[pos + 1 : ]
@@ -274,7 +274,7 @@ def download_s3files(s3uri, path):
 
     json.dump(cache, open('cache', 'w'))
 
-def download_httpfiles(httpuri, path):
+def http_download(httpuri, path):
     with requests.get(httpuri, stream=True) as r:
         r.raise_for_status()
         with open(path, 'wb') as f:
@@ -306,7 +306,7 @@ def webui():
                 for s3_model in s3_models:
                     uri = s3_model['uri']
                     name = s3_model['name']
-                    download_s3files(uri, f'/opt/ml/code/models/{name}')
+                    s3_download(uri, f'/opt/ml/code/models/{name}')
 
 
             http_models = json.loads(os.environ['http_models']) if 'http_models' in os.environ else None
@@ -315,7 +315,7 @@ def webui():
                     uri = http_model['uri']
                     filename = http_model['filename']
                     name = http_model['name']
-                    download_httpfiles(uri, f'/opt/ml/code/models/{name}/{filename}')
+                    http_download(uri, f'/opt/ml/code/models/{name}/{filename}')
 
     initialize()
 
