@@ -248,40 +248,6 @@ def api_only():
     print(f"Startup time: {startup_timer.summary()}.")
     api.launch(server_name="0.0.0.0" if cmd_opts.listen else "127.0.0.1", port=cmd_opts.port if cmd_opts.port else 7861)
 
-def s3_download(s3uri, path):
-    pos = s3uri.find('/', 5)
-    bucket = s3uri[5 : pos]
-    key = s3uri[pos + 1 : ]
-
-    s3_bucket = s3_resource.Bucket(bucket)
-    objs = list(s3_bucket.objects.filter(Prefix=key))
-
-    if os.path.isfile('cache'):
-        cache = json.load(open('cache', 'r'))
-
-    for obj in objs:
-        if obj.key == key:
-            continue
-        response = s3_client.head_object(
-            Bucket = bucket,
-            Key =  obj.key
-        )
-        obj_key = 's3://{0}/{1}'.format(bucket, obj.key)
-        if obj_key not in  cache or cache[obj_key] != response['ETag']:
-            filename = obj.key[obj.key.rfind('/') + 1 : ]
-
-            s3_client.download_file(bucket, obj.key, os.path.join(path, filename))
-            cache[obj_key] = response['ETag']
-
-    json.dump(cache, open('cache', 'w'))
-
-def http_download(httpuri, path):
-    with requests.get(httpuri, stream=True) as r:
-        r.raise_for_status()
-        with open(path, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-
 def webui():
     launch_api = cmd_opts.api
 
@@ -299,7 +265,7 @@ def webui():
                     hf_hub_download(
                         repo_id=repo_id,
                         filename=filename,
-                        local_dir=f'/opt/ml/code/models/{name}'
+                        local_dir=f'/tmp/models/{name}'
                     )
 
             s3_models = json.loads(os.environ['s3_models']) if 's3_models' in os.environ else None
@@ -307,7 +273,7 @@ def webui():
                 for s3_model in s3_models:
                     uri = s3_model['uri']
                     name = s3_model['name']
-                    s3_download(uri, f'/opt/ml/code/models/{name}')
+                    s3_download(uri, f'/tmp/models/{name}')
 
             http_models = json.loads(os.environ['http_models']) if 'http_models' in os.environ else None
             if http_models:
@@ -315,7 +281,7 @@ def webui():
                     uri = http_model['uri']
                     filename = http_model['filename']
                     name = http_model['name']
-                    http_download(uri, f'/opt/ml/code/models/{name}/{filename}')
+                    http_download(uri, f'/tmp/models/{name}/{filename}')
 
     initialize()
 
@@ -660,6 +626,40 @@ if cmd_opts.train:
         except Exception as e:
             traceback.print_exc()
             print(e)
+else:
+    def s3_download(s3uri, path):
+        pos = s3uri.find('/', 5)
+        bucket = s3uri[5 : pos]
+        key = s3uri[pos + 1 : ]
+
+        s3_bucket = s3_resource.Bucket(bucket)
+        objs = list(s3_bucket.objects.filter(Prefix=key))
+
+        if os.path.isfile('cache'):
+            cache = json.load(open('cache', 'r'))
+
+        for obj in objs:
+            if obj.key == key:
+                continue
+            response = s3_client.head_object(
+                Bucket = bucket,
+                Key =  obj.key
+            )
+            obj_key = 's3://{0}/{1}'.format(bucket, obj.key)
+            if obj_key not in  cache or cache[obj_key] != response['ETag']:
+                filename = obj.key[obj.key.rfind('/') + 1 : ]
+
+                s3_client.download_file(bucket, obj.key, os.path.join(path, filename))
+                cache[obj_key] = response['ETag']
+
+        json.dump(cache, open('cache', 'w'))
+
+    def http_download(httpuri, path):
+        with requests.get(httpuri, stream=True) as r:
+            r.raise_for_status()
+            with open(path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
 
 if __name__ == "__main__":
     if cmd_opts.train:
