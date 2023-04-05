@@ -275,10 +275,9 @@ def download_s3files(s3uri, path):
     json.dump(cache, open('cache', 'w'))
 
 def download_httpfiles(httpuri, path):
-    local_filename = httpuri.split('/')[-1]
     with requests.get(httpuri, stream=True) as r:
         r.raise_for_status()
-        with open(os.path.join(path, local_filename), 'wb') as f:
+        with open(path, 'wb') as f:
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
 
@@ -307,15 +306,16 @@ def webui():
                 for s3_model in s3_models:
                     uri = s3_model['uri']
                     name = s3_model['name']
-                    download_s3files(uri, f'/opt/ml/code/models{name}')
+                    download_s3files(uri, f'/opt/ml/code/models/{name}')
 
 
             http_models = json.loads(os.environ['http_models']) if 'http_models' in os.environ else None
             if http_models:
                 for http_model in http_models:
                     uri = http_model['uri']
+                    filename = http_model['filename']
                     name = http_model['name']
-                    download_httpfiles(uri, f'/opt/ml/code/models{name}')
+                    download_httpfiles(uri, f'/opt/ml/code/models/{name}/{filename}')
 
     initialize()
 
