@@ -706,10 +706,9 @@ class Api:
             cuda = { 'error': f'{err}' }
         return MemoryResponse(ram = ram, cuda = cuda)
 
-    def post_invocations(self, response):
+    def post_invocations(self, b64images):
         if generated_images_s3uri:
             bucket, key = self.get_bucket_and_key(generated_images_s3uri)
-            b64images = response['images']
             images = []
             for b64image in b64images:
                 image = decode_base64_to_image(b64image).convert('RGB')
@@ -722,7 +721,9 @@ class Api:
                     Key=f'{key}/{image_id}.jpg'
                 )
                 images.append(f's3://{bucket}/{key}/{image_id}.jpg')
-            response['images'] = images
+            return images
+        else:
+            return b64images
 
     def invocations(self, req: InvocationsRequest):
         print('-------invocation------')
@@ -736,19 +737,19 @@ class Api:
         try:
             if req.task == 'text-to-image':
                 response = self.text2imgapi(req.txt2img_payload)
-                self.post_invocations(response)
+                response.images = self.post_invocations(response.images)
                 return response
             elif req.task == 'image-to-image':
                 response = self.img2imgapi(req.img2img_payload)
-                self.post_invocations(response)
+                response.images = self.post_invocations(response.images)
                 return response
             elif req.task == 'extras-single-image':
                 response = self.extras_single_image_api(req.extras_single_payload)
-                self.post_invocations(response)
+                response.image = self.post_invocations([response.image])[0]
                 return response
             elif req.task == 'extras-batch-images':
                 response = self.extras_batch_images_api(req.extras_batch_payload)
-                self.post_invocations(response)
+                response.images = self.post_invocations(response.images)
                 return response
             else:
                 raise NotImplementedError
