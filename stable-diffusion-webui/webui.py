@@ -284,6 +284,39 @@ def download_httpfiles(httpuri, path):
 
 def webui():
     launch_api = cmd_opts.api
+
+    if launch_api:
+            huggingface_models = json.loads(os.environ['huggingface_models']) if 'huggingface_models' in os.environ else None
+            if huggingface_models:
+                huggingface_token = huggingface_models['token']
+                os.system(f'huggingface-cli login --token {huggingface_token}')
+                hf_hub_models = huggingface_models['models']
+                for huggingface_model in hf_hub_models:
+                    repo_id = huggingface_model['repo_id']
+                    filename = huggingface_model['filename']
+                    name = huggingface_model['name']
+
+                    hf_hub_download(
+                        repo_id=repo_id,
+                        filename=filename,
+                        local_dir=f'/opt/ml/code/models/{name}'
+                    )
+
+            s3_models = json.loads(os.environ['s3_models']) if 's3_models' in os.environ else None
+            if s3_models:
+                for s3_model in s3_models:
+                    uri = s3_model['uri']
+                    name = s3_model['name']
+                    download_s3files(uri, f'/opt/ml/code/models{name}')
+
+
+            http_models = json.loads(os.environ['http_models']) if 'http_models' in os.environ else None
+            if http_models:
+                for http_model in http_models:
+                    uri = http_model['uri']
+                    name = http_model['name']
+                    download_httpfiles(uri, f'/opt/ml/code/models{name}')
+
     initialize()
 
     while 1:
@@ -336,36 +369,6 @@ def webui():
 
         if launch_api:
             create_api(app)
-
-            huggingface_models = json.loads(os.environ['huggingface_models']) if 'huggingface_models' in os.environ else None
-            if huggingface_models:
-                huggingface_token = huggingface_models['token']
-                os.system(f'huggingface-cli login --token {huggingface_token}')
-                hf_hub_models = huggingface_models['models']
-                for huggingface_model in hf_hub_models:
-                    repo_id = huggingface_model['repo_id']
-                    filename = huggingface_model['filename']
-                    name = huggingface_model['name']
-
-                    hf_hub_download(
-                        repo_id=repo_id,
-                        filename=filename,
-                        local_dir=f'/opt/ml/code/models/{name}'
-                    )
-
-            s3_models = json.loads(os.environ['s3_models']) if 's3_models' in os.environ else None
-            if s3_models:
-                for s3_model in s3_models:
-                    uri = s3_model['uri']
-                    name = s3_model['name']
-                    download_s3files(uri, f'/opt/ml/code/models{name}')
-
-            http_models = json.loads(os.environ['http_models']) if 'http_models' in os.environ else None
-            if http_models:
-                for http_model in http_models:
-                    uri = http_model['uri']
-                    name = http_model['name']
-                    download_httpfiles(uri, f'/opt/ml/code/models{name}')
 
         ui_extra_networks.add_pages_to_demo(app)
 
