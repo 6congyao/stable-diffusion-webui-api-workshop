@@ -59,13 +59,13 @@ from modules.shared import cmd_opts
 import modules.hypernetworks.hypernetwork
 
 from huggingface_hub import hf_hub_download
+import boto3
+import json
 
 if cmd_opts.train:
     import shutil
-    import boto3
     import traceback
     from botocore.exceptions import ClientError
-    import json
     from extensions.sd_dreambooth_extension.dreambooth.db_config import DreamboothConfig
     from extensions.sd_dreambooth_extension.scripts.dreambooth import start_training_from_config, create_model
     from extensions.sd_dreambooth_extension.scripts.dreambooth import performance_wizard, training_wizard
@@ -74,7 +74,6 @@ if cmd_opts.train:
     import glob
 else:
     import requests
-    import boto3
     cache = dict()
     s3_client = boto3.client('s3')
     s3_resource= boto3.resource('s3')
