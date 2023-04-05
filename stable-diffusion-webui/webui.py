@@ -77,6 +77,7 @@ else:
     cache = dict()
     s3_client = boto3.client('s3')
     s3_resource= boto3.resource('s3')
+    os.system('df -h')
 
 startup_timer.record("other imports")
 
