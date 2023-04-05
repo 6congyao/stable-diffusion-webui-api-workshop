@@ -262,11 +262,12 @@ def webui():
             s3_models = json.loads(payload).get('s3_models', None)
             http_models = json.loads(payload).get('http_models', None)
         else:
-            huggingface_models = json.loads(os.environ).get('huggingface_models', None)
-            s3_models = json.loads(os.environ).get('s3_models', None)
-            http_models = json.loads(os.environ).get('http_models', None)
+            huggingface_models = os.environ.get('huggingface_models', None)
+            s3_models = os.environ.get('s3_models', None)
+            http_models = os.environ.get('http_models', None)
 
         if huggingface_models:
+            huggingface_models = json.loads(huggingface_models)
             huggingface_token = huggingface_models['token']
             os.system(f'huggingface-cli login --token {huggingface_token}')
             hf_hub_models = huggingface_models['models']
@@ -283,12 +284,14 @@ def webui():
                 )
 
         if s3_models:
+            s3_models = json.loads(s3_models)
             for s3_model in s3_models:
                 uri = s3_model['uri']
                 name = s3_model['name']
                 s3_download(uri, f'/tmp/models/{name}')
 
         if http_models:
+            http_models = json.loads(http_models)
             for http_model in http_models:
                 uri = http_model['uri']
                 filename = http_model['filename']
