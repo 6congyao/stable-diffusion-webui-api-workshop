@@ -265,7 +265,8 @@ def webui():
                     hf_hub_download(
                         repo_id=repo_id,
                         filename=filename,
-                        local_dir=f'/tmp/models/{name}'
+                        local_dir=f'/tmp/models/{name}',
+                        cache_dir='/tmp/cache/huggingface'
                     )
 
             s3_models = json.loads(os.environ['s3_models']) if 's3_models' in os.environ else None
