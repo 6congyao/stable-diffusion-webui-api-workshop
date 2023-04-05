@@ -763,7 +763,7 @@ class Api:
         self.app.include_router(self.router)
         uvicorn.run(self.app, host=server_name, port=port)
 
-    def get_bucket_and_key(s3uri):
+    def get_bucket_and_key(self, s3uri):
         pos = s3uri.find('/', 5)
         bucket = s3uri[5 : pos]
         key = s3uri[pos + 1 : ]
