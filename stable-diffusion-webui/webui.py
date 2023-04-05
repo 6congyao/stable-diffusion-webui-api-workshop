@@ -308,7 +308,6 @@ def webui():
                     name = s3_model['name']
                     s3_download(uri, f'/opt/ml/code/models/{name}')
 
-
             http_models = json.loads(os.environ['http_models']) if 'http_models' in os.environ else None
             if http_models:
                 for http_model in http_models:
