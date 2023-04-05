@@ -1,4 +1,4 @@
-FROM public.ecr.aws/l1s7l7p8/all-in-one-ai-stable-diffusion-webui-inference:latest
+FROM public.ecr.aws/l1s7l7p8/all-in-one-ai-stable-diffusion-webui-inference-api:latest
 
 COPY serve /opt/ml/code
 COPY stable-diffusion-webui /opt/ml/code/
