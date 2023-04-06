@@ -77,7 +77,6 @@ else:
     cache = dict()
     s3_client = boto3.client('s3')
     s3_resource= boto3.resource('s3')
-    os.system('df -h')
 
 startup_timer.record("other imports")
 
@@ -589,11 +588,6 @@ if cmd_opts.train:
 
         lora_model_dir = os.path.dirname(cmd_lora_models_path) if cmd_lora_models_path else paths.models_path
         lora_model_dir = os.path.join(lora_model_dir, "lora")
-
-        print('---models path---', sd_models_dir, lora_model_dir)
-        os.system(f'ls -l {sd_models_dir}')
-        os.system('ls -l {0}'.format(os.path.join(sd_models_dir, db_model_name)))
-        os.system(f'ls -l {lora_model_dir}')
 
         try:
             print('Uploading SD Models...')
