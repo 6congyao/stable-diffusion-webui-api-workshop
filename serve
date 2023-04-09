@@ -16,10 +16,10 @@ if hypernetwork_s3uri != '':
 if ckpt != '':
     cmd = '{0} --ckpt {1}'.format(cmd, ckpt)
 
-os.makedirs(os.path.dirname('/tmp/cache/huggingface'), exist_ok=True)
-os.makedirs(os.path.dirname('/tmp/models/Stable-diffusion'), exist_ok=True)
-os.makedirs(os.path.dirname('/tmp/models/ControlNet'), exist_ok=True)
-os.makedirs(os.path.dirname('/tmp/models/Lora'), exist_ok=True)
+os.makedirs('/tmp/cache/huggingface', exist_ok=True)
+os.makedirs('/tmp/models/Stable-diffusion', exist_ok=True)
+os.makedirs('/tmp/models/ControlNet', exist_ok=True)
+os.makedirs('/tmp/models/Lora', exist_ok=True)
 
 if os.path.isdir('/opt/ml/model/Stable-diffusion'):
     shutil.copytree('/opt/ml/model/Stable-diffusion', '/tmp/models/Stable-diffusion')
