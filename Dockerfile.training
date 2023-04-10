@@ -23,6 +23,6 @@ ENV SAGEMAKER_PROGRAM train.py
 RUN apt install build-essential
 
 RUN pip install ninja triton
-RUN conda install xformers -c xformers
+RUN conda install xformers -c xformers -y
 
 ENTRYPOINT []

@@ -16,6 +16,6 @@ RUN mkdir -p /root/.cache/huggingface/accelerate
 COPY default_config.yaml /root/.cache/huggingface/accelerate/
 
 RUN pip install boto3 huggingface_hub ninja triton deepspeed accelerate
-RUN conda install xformers -c xformers
+RUN conda install xformers -c xformers -y
 
 WORKDIR /opt/ml/code
