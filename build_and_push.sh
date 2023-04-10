@@ -7,7 +7,7 @@ set -e
 
 # The argument to this script is the region name. 
 
-if [ "$#" -ne 1 ]; then
+if [ "$#" -ne 1 ] ; then
     echo "usage: $0 [region-name] [option]"
     exit 1
 fi
@@ -21,8 +21,6 @@ if [ $? -ne 0 ]
 then
     exit 255
 fi
-
-cp Dockerfile.inference.origin Dockerfile.inference
 
 inference_image=all-in-one-ai-stable-diffusion-webui-inference-api
 inference_fullname=${account}.dkr.ecr.${region}.amazonaws.com/${inference_image}:latest
@@ -51,3 +49,31 @@ docker build -t ${inference_image} -f Dockerfile.inference .
 docker tag ${inference_image} ${inference_fullname}
 
 docker push ${inference_fullname}
+
+training_image=all-in-one-ai-stable-diffusion-webui-training-api
+training_fullname=${account}.dkr.ecr.${region}.amazonaws.com/${training_image}:latest
+
+# If the repository doesn't exist in ECR, create it.
+aws ecr describe-repositories --repository-names "${training_image}" --region ${region} || aws ecr create-repository --repository-name "${training_image}" --region ${region}
+
+if [ $? -ne 0 ]
+then
+    aws ecr create-repository --repository-name "${training_image}" --region ${region}
+fi
+
+# Get the login command from ECR and execute it directly
+aws ecr get-login-password --region $region | docker login --username AWS --password-stdin $account.dkr.ecr.$region.amazonaws.com
+
+aws ecr set-repository-policy \
+    --repository-name "${training_image}" \
+    --policy-text "file://ecr-policy.json" \
+    --region ${region}
+
+# Build the docker image locally with the image name and then push it to ECR
+# with the full name.
+
+docker build -t ${training_image} -f Dockerfile.training .
+
+docker tag ${training_image} ${training_fullname}
+
+docker push ${training_fullname}
