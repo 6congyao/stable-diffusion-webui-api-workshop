@@ -715,12 +715,12 @@ class Api:
                 output = io.BytesIO()
 
                 try:
-                    if quality:
-                        image.save(output, format='JPEG', quality=quality)
-                    else:
-                        image.save(output, format='JPEG')
+                    if not quality:
+                        quality = 95
+
+                    image.save(output, format='JPEG', quality=quality)
                 except Exception:
-                    image.save(output, format='JPEG')
+                    image.save(output, format='JPEG', quality=95)
 
                 image_id = str(uuid.uuid4())
                 s3_client.put_object(
