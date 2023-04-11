@@ -706,14 +706,22 @@ class Api:
             cuda = { 'error': f'{err}' }
         return MemoryResponse(ram = ram, cuda = cuda)
 
-    def post_invocations(self, b64images):
+    def post_invocations(self, b64images, quality):
         if generated_images_s3uri:
             bucket, key = self.get_bucket_and_key(generated_images_s3uri)
             images = []
             for b64image in b64images:
                 image = decode_base64_to_image(b64image).convert('RGB')
                 output = io.BytesIO()
-                image.save(output, format='JPEG')
+
+                try:
+                    if quality:
+                        image.save(output, format='JPEG', quality=quality)
+                    else:
+                        image.save(output, format='JPEG')
+                except Exception:
+                    image.save(output, format='JPEG')
+
                 image_id = str(uuid.uuid4())
                 s3_client.put_object(
                     Body=output.getvalue(),
@@ -734,22 +742,24 @@ class Api:
             with self.queue_lock:
                 modules.sd_models.reload_model_weights()
 
+        quality = req.quality
+
         try:
             if req.task == 'text-to-image':
                 response = self.text2imgapi(req.txt2img_payload)
-                response.images = self.post_invocations(response.images)
+                response.images = self.post_invocations(response.images, quality)
                 return response
             elif req.task == 'image-to-image':
                 response = self.img2imgapi(req.img2img_payload)
-                response.images = self.post_invocations(response.images)
+                response.images = self.post_invocations(response.images, quality)
                 return response
             elif req.task == 'extras-single-image':
                 response = self.extras_single_image_api(req.extras_single_payload)
-                response.image = self.post_invocations([response.image])[0]
+                response.image = self.post_invocations([response.image], quality)[0]
                 return response
             elif req.task == 'extras-batch-images':
                 response = self.extras_batch_images_api(req.extras_batch_payload)
-                response.images = self.post_invocations(response.images)
+                response.images = self.post_invocations(response.images, quality)
                 return response
             else:
                 raise NotImplementedError

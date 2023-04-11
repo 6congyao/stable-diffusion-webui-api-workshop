@@ -294,6 +294,7 @@ class ScriptsList(BaseModel):
 class InvocationsRequest(BaseModel):
     task: str
     model: Optional[str]
+    quality: Optional[int]
     txt2img_payload: Optional[StableDiffusionTxt2ImgProcessingAPI]
     img2img_payload: Optional[StableDiffusionImg2ImgProcessingAPI]
     extras_single_payload: Optional[ExtrasSingleImageRequest]
