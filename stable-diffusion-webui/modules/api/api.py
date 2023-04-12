@@ -718,17 +718,17 @@ class Api:
                     if not quality:
                         quality = 95
 
-                    image.save(output, format='JPEG', quality=quality)
+                    image.save(output, format='PNG', quality=quality)
                 except Exception:
-                    image.save(output, format='JPEG', quality=95)
+                    image.save(output, format='PNG', quality=95)
 
                 image_id = str(uuid.uuid4())
                 s3_client.put_object(
                     Body=output.getvalue(),
                     Bucket=bucket,
-                    Key=f'{key}/{image_id}.jpg'
+                    Key=f'{key}/{image_id}.png'
                 )
-                images.append(f's3://{bucket}/{key}/{image_id}.jpg')
+                images.append(f's3://{bucket}/{key}/{image_id}.png')
             return images
         else:
             return b64images
