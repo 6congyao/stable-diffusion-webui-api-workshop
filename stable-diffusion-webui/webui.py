@@ -248,6 +248,8 @@ def api_only():
     api.launch(server_name="0.0.0.0" if cmd_opts.listen else "127.0.0.1", port=cmd_opts.port if cmd_opts.port else 7861)
 
 def webui():
+    global cache
+
     launch_api = cmd_opts.api
 
     if launch_api:
@@ -643,6 +645,8 @@ else:
         return bucket, key
 
     def s3_download(s3uri, path):
+        global cache
+
         pos = s3uri.find('/', 5)
         bucket = s3uri[5 : pos]
         key = s3uri[pos + 1 : ]
