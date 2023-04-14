@@ -33,7 +33,7 @@ import asyncio
 from typing import Union
 import traceback
 import modules.sd_models
-import modules.shared
+import modules.sd_vae
 
 import uuid
 import os
@@ -738,9 +738,13 @@ class Api:
         print(req)
 
         if req.model != None:
-            modules.shared.opts.sd_model_checkpoint = req.model
+            shared.opts.sd_model_checkpoint = req.model
             with self.queue_lock:
                 modules.sd_models.reload_model_weights()
+
+        if req.vae != None:
+            shared.opts.data['sd_vae'] = req.vae
+            modules.sd_vae.refresh_vae_list()
 
         quality = req.quality
 
