@@ -737,14 +737,17 @@ class Api:
         print('-------invocation------')
         print(req)
 
-        if req.model != None:
-            shared.opts.sd_model_checkpoint = req.model
-            with self.queue_lock:
-                modules.sd_models.reload_model_weights()
-
         if req.vae != None:
             shared.opts.data['sd_vae'] = req.vae
             modules.sd_vae.refresh_vae_list()
+
+        if req.model != None:
+            sd_model_checkpoint = shared.opts.sd_model_checkpoint
+            shared.opts.sd_model_checkpoint = req.model
+            with self.queue_lock:
+                modules.sd_models.reload_model_weights()
+            if sd_model_checkpoint == shared.opts.sd_model_checkpoint:
+                modules.sd_vae.reload_vae_weights()
 
         quality = req.quality
 
