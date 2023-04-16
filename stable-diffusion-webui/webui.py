@@ -269,10 +269,7 @@ def webui():
 
         if huggingface_models:
             huggingface_models = json.loads(huggingface_models)
-            huggingface_token = huggingface_models['token']
-            os.system(f'huggingface-cli login --token {huggingface_token}')
-            hf_hub_models = huggingface_models['models']
-            for huggingface_model in hf_hub_models:
+            for huggingface_model in huggingface_models:
                 repo_id = huggingface_model['repo_id']
                 filename = huggingface_model['filename']
                 name = huggingface_model['name']
