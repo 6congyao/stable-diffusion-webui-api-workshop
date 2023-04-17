@@ -726,7 +726,7 @@ class Api:
                 s3_client.put_object(
                     Body=output.getvalue(),
                     Bucket=bucket,
-                    Key=f'{key}{image_id}.png'
+                    Key=f'{key}/{image_id}.png'
                 )
                 images.append(f's3://{bucket}/{key}/{image_id}.png')
             return images
