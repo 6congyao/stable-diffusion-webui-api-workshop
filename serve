@@ -32,5 +32,10 @@ if os.path.isdir('/opt/ml/model/Lora'):
 if os.path.isdir('/opt/ml/model/Vae'):
     shutil.copytree('/opt/ml/model/Vae', '/tmp/models/Vae')
 
+os.makedirs('/tmp/models/Stable-diffusion', exist_ok=True)
+os.makedirs('/tmp/models/ControlNet', exist_ok=True)
+os.makedirs('/tmp/models/Lora', exist_ok=True)
+os.makedirs('/tmp/models/Vae', exist_ok=True)
+
 ret = subprocess.run(cmd, shell=True)
 print(ret)
