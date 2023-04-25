@@ -12,7 +12,7 @@ if embeddings_s3uri:
     cmd = '{0} --embeddings-s3uri {1} --embeddings-dir /tmp/embeddings'.format(cmd, embeddings_s3uri)
 
 if hypernetwork_s3uri:
-    cmd = '{0} --hypernetwork-s3uri {1} hypernetwork-dir /tmp/hypernetwork'.format(cmd, hypernetwork_s3uri)
+    cmd = '{0} --hypernetwork-s3uri {1} --hypernetwork-dir /tmp/hypernetwork'.format(cmd, hypernetwork_s3uri)
 
 if ckpt:
     cmd = '{0} --ckpt {1}'.format(cmd, ckpt)
