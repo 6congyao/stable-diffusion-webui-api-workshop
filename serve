@@ -9,10 +9,10 @@ hypernetwork_s3uri = os.environ.get('hypernetwork_s3uri', None)
 cmd = "ACCELERATE=true bash webui.sh --api --listen --port 8080 --no-half --precision full --xformers --ckpt-dir /tmp/models/Stable-diffusion --controlnet-dir /tmp/models/ControlNet --lora-dir /tmp/models/Lora --vae-dir /tmp/models/Vae"
 
 if embeddings_s3uri:
-    cmd = '{0} --embeddings-s3uri {1}'.format(cmd, embeddings_s3uri)
+    cmd = '{0} --embeddings-s3uri {1} --embeddings-dir /tmp/embeddings'.format(cmd, embeddings_s3uri)
 
 if hypernetwork_s3uri:
-    cmd = '{0} --hypernetwork-s3uri {1}'.format(cmd, hypernetwork_s3uri)
+    cmd = '{0} --hypernetwork-s3uri {1} hypernetwork-dir /tmp/hypernetwork'.format(cmd, hypernetwork_s3uri)
 
 if ckpt:
     cmd = '{0} --ckpt {1}'.format(cmd, ckpt)
@@ -36,6 +36,9 @@ os.makedirs('/tmp/models/Stable-diffusion', exist_ok=True)
 os.makedirs('/tmp/models/ControlNet', exist_ok=True)
 os.makedirs('/tmp/models/Lora', exist_ok=True)
 os.makedirs('/tmp/models/Vae', exist_ok=True)
+
+os.makedirs('/tmp/embeddings', exist_ok=True)
+os.makedirs('/tmp/hypernetwork', exist_ok=True)
 
 ret = subprocess.run(cmd, shell=True)
 print(ret)
