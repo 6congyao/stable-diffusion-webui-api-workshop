@@ -50,7 +50,6 @@ echo "--------------------------------------------------------------------------
 
 lambda_folders="
 all_in_one_ai_inference
-all_in_one_ai_inference_post_process
 all_in_one_ai_invoke_endpoint
 "
 
