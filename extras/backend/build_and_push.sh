@@ -51,6 +51,7 @@ echo "--------------------------------------------------------------------------
 lambda_folders="
 all_in_one_ai_inference
 all_in_one_ai_invoke_endpoint
+all_in_one_ai_training_job
 "
 
 for lambda_folder in $lambda_folders; do
