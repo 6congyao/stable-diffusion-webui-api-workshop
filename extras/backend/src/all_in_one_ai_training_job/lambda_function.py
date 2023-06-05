@@ -1,5 +1,6 @@
 import boto3
 import traceback
+import json
 
 sagemaker_client = boto3.client('sagemaker')
 
@@ -7,14 +8,16 @@ def lambda_handler(event, context):
     print(event['body'])
 
     try:
-        training_job_name = event['body']['training_job_name']
-        hyperparameters = event['body']['hyperparameters']
-        algorithm_specification = event['body']['algorithm_specification']
-        role_arn = event['body']['role_arn']
-        input_data_config = event['body']['input_data_config']
-        output_data_config = event['body']['output_data_config']
-        resource_config = event['body']['resource_config']
-        tags = event['body']['tags']
+        body = json.loads(event['body'])
+        training_job_name = body['training_job_name']
+        hyperparameters = body['hyperparameters']
+        hyperparameters['train-args'] = str(hyperparameters['train-args'])
+        algorithm_specification = body['algorithm_specification']
+        role_arn = body['role_arn']
+        input_data_config = body['input_data_config']
+        output_data_config = body['output_data_config']
+        resource_config = body['resource_config']
+        tags = body['tags']
     
         response = sagemaker_client.create_training_job(
             TrainingJobName = training_job_name,
