@@ -1,7 +1,26 @@
-import json
 import boto3
+import uuid
+import base64
+import traceback
+from botocore.client import Config
 
-lambda_client = boto3.client('lambda')
+s3_client = boto3.client('s3', config=Config(signature_version='s3v4'))
+
+config = Config(
+    read_timeout=120,
+    retries={
+        'max_attempts': 0
+    }
+)
+
+sagemaker_runtime_client = boto3.client('sagemaker-runtime', config = config)
+sagemaker_client = boto3.client('sagemaker')
+
+account_id = boto3.client("sts").get_caller_identity().get("Account")
+region_name = boto3.session.Session().region_name
+bucket = f'sagemaker-{region_name}-{account_id}'
+prefix = f's3://{bucket}/stable-diffusion-webui/asyncinvoke/in/'
+
 
 def lambda_handler(event, context):
     if event['httpMethod'] == 'POST':
@@ -19,33 +38,49 @@ def lambda_handler(event, context):
 
         endpoint_name = event['queryStringParameters']['endpoint_name']
 
-        body = {
-            "endpoint_name": endpoint_name,
-            "content_type": content_type,
-            "payload": payload
-        }
-        
-        response = lambda_client.invoke(
-            FunctionName = 'all_in_one_ai_invoke_endpoint',
-            InvocationType = 'RequestResponse',
-            Payload = json.dumps(body)
-        )
+        try:
+            body = payload if(content_type == 'application/json') else base64.b64decode(payload)
 
-        if('FunctionError' not in response):
-            payload = response["Payload"].read().decode("utf-8")
-            payload = json.loads(payload)
-            print(payload['body'])
+            response = sagemaker_client.describe_endpoint(
+                EndpointName = endpoint_name
+            )
+
+            infer_type = 'async' if ('AsyncInferenceConfig' in response) else 'sync'
+
+            if(infer_type == 'sync'):
+                response = sagemaker_runtime_client.invoke_endpoint(
+                    EndpointName = endpoint_name,
+                    ContentType = content_type,
+                    Body = body)
+
+                print(response)
+                body = response['Body'].read()
+            else:
+                key = f'{prefix}/{uuid.uuid4()}.json'
+                s3_client.put_object(
+                    Body=payload,
+                    Bucket=bucket,
+                    Key=key
+                )
+                response = sagemaker_runtime_client.invoke_endpoint_async(
+                    EndpointName=endpoint_name,
+                    ContentType="application/json",
+                    InputLocation=key
+                )
+                print(response)
+                body = response["OutputLocation"]
 
             return {
-                'statusCode': payload['statusCode'],
-                'body': payload['body']
+                'statusCode': 200,
+                'body': body
             }
-        else:
+
+        except Exception as e:
+            traceback.print_exc()
             return {
                 'statusCode': 400,
-                'body': response["FunctionError"]
+                'body': str(e)
             }
-        
     else:
         return {
             'statusCode': 400,
