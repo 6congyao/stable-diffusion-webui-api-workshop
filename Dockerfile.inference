@@ -12,8 +12,8 @@ RUN conda install xformers -c xformers -y
 
 RUN mkdir -p /opt/ml/code
 
-ADD https://api.github.com/repos/xieyongliang/stable-diffusion-webui/git/refs/heads/api webui.version.json
-RUN git clone https://github.com/xieyongliang/stable-diffusion-webui.git /opt/ml/code -b api
+ADD https://api.github.com/repos/xiangcp/stable-diffusion-webui/git/refs/heads/api webui.version.json
+RUN git clone https://github.com/xiangcp/stable-diffusion-webui.git /opt/ml/code -b api
 
 ADD https://api.github.com/repos/Mikubill/sd-webui-controlnet/git/refs/heads/main controlnet.version.json
 RUN git clone https://github.com/Mikubill/sd-webui-controlnet.git /opt/ml/code/extensions/sd-webui-controlnet
