@@ -56,11 +56,11 @@ def lambda_handler(event, context):
                 print(response)
                 body = response['Body'].read()
             else:
-                key = f'{prefix}{uuid.uuid4()}.json'
+                object_bucket, object_key = get_bucket_and_key(f'{prefix}{uuid.uuid4()}.json')
                 s3_client.put_object(
                     Body=payload,
-                    Bucket=bucket,
-                    Key=key
+                    Bucket=object_bucket,
+                    Key=object_key
                 )
                 response = sagemaker_runtime_client.invoke_endpoint_async(
                     EndpointName=endpoint_name,
@@ -86,3 +86,9 @@ def lambda_handler(event, context):
             'statusCode': 400,
             'body': "Unsupported HTTP method"
         }
+
+def get_bucket_and_key(s3uri):
+    pos = s3uri.find('/', 5)
+    bucket = s3uri[5 : pos]
+    key = s3uri[pos + 1 : ]
+    return bucket, key
