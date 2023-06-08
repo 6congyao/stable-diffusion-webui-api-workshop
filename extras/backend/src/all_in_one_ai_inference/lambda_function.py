@@ -56,7 +56,8 @@ def lambda_handler(event, context):
                 print(response)
                 body = response['Body'].read()
             else:
-                object_bucket, object_key = get_bucket_and_key(f'{prefix}{uuid.uuid4()}.json')
+                s3uri = f'{prefix}{uuid.uuid4()}.json'
+                object_bucket, object_key = get_bucket_and_key(s3uri)
                 s3_client.put_object(
                     Body=payload,
                     Bucket=object_bucket,
@@ -65,7 +66,7 @@ def lambda_handler(event, context):
                 response = sagemaker_runtime_client.invoke_endpoint_async(
                     EndpointName=endpoint_name,
                     ContentType="application/json",
-                    InputLocation=key
+                    InputLocation=s3uri
                 )
                 print(response)
                 body = response["OutputLocation"]
