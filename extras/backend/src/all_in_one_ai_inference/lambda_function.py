@@ -56,7 +56,7 @@ def lambda_handler(event, context):
                 print(response)
                 body = response['Body'].read()
             else:
-                key = f'{prefix}/{uuid.uuid4()}.json'
+                key = f'{prefix}{uuid.uuid4()}.json'
                 s3_client.put_object(
                     Body=payload,
                     Bucket=bucket,
